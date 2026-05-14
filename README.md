@@ -37,3 +37,8 @@ This dashboard analyzes socioeconomic and infrastructure indicators from the Wor
 - Data range: 2000–2022  
 
 ## Repository Contents
+
+- worldbank_dashboard.Rmd # R Markdown source for flexdashboard
+- worldbank_dashboard.html # Self-contained interactive dashboard
+- worldbank.csv # Raw data (if permitted to share)
+- README.md # This file
