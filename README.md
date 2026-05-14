@@ -8,7 +8,7 @@ An interactive R flexdashboard analyzing global development trends (2000–2022)
 ## Live Dashboard
 
 > *The dashboard is an HTML file – download or view locally after rendering.* 
-> *Need to add a live demo link but need to be hosted first.*
+> *Need to add a live demo link, but need to be hosted first.*
 
 ## Team Members
 
