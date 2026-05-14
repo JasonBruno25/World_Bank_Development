@@ -1,0 +1,900 @@
+---
+title: "World Bank Development Data Dashboard"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: scroll
+    storyboard: true
+    code_download: false         
+    theme:
+      bg: "#FFFFFF"
+      fg: "#861F41"
+      primary: "#861F41"
+      secondary: "#E5751F"
+      base_font:
+        google: 
+          family: Noto Sans
+          wght: [400, 700]
+          ital: [0, 1]
+      heading_font:
+        google: 
+          family: Noto Serif
+          wght: [400, 700]
+          ital: [0, 1]
+      code_font:
+        google: 
+          family: Noto Sans Mono
+          wght: [400, 700]
+          ital: [0, 1]
+---
+
+<style>
+.chart-title {
+  font-weight: bold;
+}
+</style>
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyr)
+library(class)     
+library(caret)     
+library(tidyverse)
+library(e1071)
+library(GGally)
+library(knitr)
+library(Metrics)
+library(glmnet)
+library(pROC)
+library(ggplot2)
+library(plotly)
+library(plyr)
+library(knitr)
+library(kableExtra)
+# load your data
+#setwd("C:/Users/matth/OneDrive - Virginia Tech/Group Exercise 1")  
+#setwd("C:/Users/matth/OneDrive - Virginia Tech/Group Exercise 1")  
+#wb <- read.csv("worldbank.csv")
+#setwd("C:/Users/matth/OneDrive - Virginia Tech/CMDA Project 1")
+setwd("~/Documents/School Files/spring2025/cmda4654/prj1")
+bank <- read_csv("worldbank.csv")
+wb <- read.csv("worldbank.csv")
+df_mlr <- wb %>%
+  dplyr::rename(
+    gdp = 'GDP.per.capita..current.US..',
+    school = 'School.enrollment..tertiary....gross.',
+    health = 'Current.health.expenditure.per.capita..current.US..',
+    urban = 'Urban.population....of.total.population.'
+  ) %>%
+  select(gdp, school, health, urban) %>%
+  drop_na()
+```
+
+Project Background
+======================================
+
+### Authors
+
+Matthew Pannell - Matt is from Northern Virginia. Specifically, Springfiled, Virginia. His favorite place to eat in blacksburg is either Cabo Fish Taco or Zeppoli’s. In his freetime, he enjoys playing video games and being outside. His favorite video game is Civilization and his favorite hike in Blacksburg is Bald Knob. Responsible for the Multiple Regression, kNN, Naive Bayes, and formatted the dashboard.
+
+Jason Bruno Teceros - Jason is from Herndon, VA, which is in the Northern Virginia area. He is not too far from where I grew up. Says his favorite dish to eat is a Chicken and Lamb over Rice (mixed lamb over rice) from Italianos. In his free
+time he enjoys to play video games as well and to read. His favorite game is Call of Duty and his favorite author is Steven King. He wishes he can be more active and participate in sports like he did when he was in high school. Responsible for Rigde Regression, Logistic Regression, Project Background page of the dashboard, and helped with general dashboard formatting.
+
+Porter Lin - I am from China. Currently my favorite place to eat is Perry place. It is near the DDS building. My next favorite is Chipotle. My favorite music genre is classical, but recently I began picking up other genres as well. I don't have one specific favorite game since I often plays awesome games by small indie creators, but out of all games I play, I play Minecraft the most. I did LOESS regression and helped with formatting the dashboard.
+
+### Abstract
+
+This dashboard analyzes global development trends from 2000 to 2022 using World Bank indicators across multiple different countries and a range of socioeconomic and infrastructure-related variables. We investigate this data through different research questions using both regression and classification techniques. Our analysis spans GDP per capita, income inequality (Gini index), unemployment, and others that will be discussed and addressed in this dashboard. We apply both regression and classification techniques to analyze this data, such as; Multiple Regression (non-linear), Ridge Regression fit, LOESS fit, kNN classification, Naive Bayes Classification, and Logistic Regression. Our results will be visualized using a variety of maps and plots that offer a clear insight to the global patterns and by comparison; answering our respective research questions.
+
+### Introduction
+
+This project leverages socioeconomic and infrastructure indicators from the World Bank, spanning the years 2000 to 2022, to investigate global development patterns across a diverse set of countries. The dataset includes economic measures such as GDP per capita, inflation, and unemployment, as well as social indicators like life expectancy, school enrollment, and health expenditure. Additionally, it incorporates infrastructure and technology access metrics, such as electricity access, internet usage, and mobile phone subscriptions.
+
+Using this data, we explore research questions related to the economic growth. Our methods include ridge regression to understand linear relationships, LOESS smoothing to uncover non-linear trends over time, and logistic regression for classification tasks—particularly focusing on modeling digital inclusion. The dashboard offers a visual and interactive means of understanding these complex, multidimensional relationships. The data used can be found here: <https://drive.google.com/drive/u/1/folders/16j7E2yBUDPmfGM00o7rGVGaCsE9BYhnK>. Additionally you can download the data yourself from the world bank website here: <https://databank.worldbank.org/source/world-development-indicators>.
+
+### Data Dictionary
+
+```{r Data Dictionary Table}
+data_dict <- data.frame(
+  `Variable Name` = c(
+    "Country Name", "Country Code", "Year",
+    "GDP per capita (current US)", "Gini index", 
+    "Unemployment, total (% of total labor force)",
+    "Inflation, consumer prices (annual %)",
+    "Exports of goods and services (% of GDP)",
+    "Gross capital formation (% of GDP)",
+    "Life expectancy at birth, total (years)",
+    "School enrollment, tertiary (% gross)",
+    "Current health expenditure per capita (current US$)",
+    "Population growth (annual %)",
+    "Access to electricity (% of population)",
+    "Individuals using the Internet (% of population)",
+    "Mobile cellular subscriptions (per 100 people)",
+    "Urban population (% of total population)"
+  ),
+  Description = c(
+    "Full name of the country",
+    "Three-letter ISO country code",
+    "Calendar year of the observation",
+    "Gross Domestic Product divided by midyear population, in current U.S. dollars",
+    "Measure of income inequality (0 = perfect equality, 100 = perfect inequality)",
+    "Percentage of total labor force that is unemployed (national estimate)",
+    "Annual percentage change in consumer prices",
+    "Total exports as a percentage of GDP",
+    "Investment in fixed assets plus net changes in inventories",
+    "Average number of years a newborn is expected to live",
+    "Gross enrollment ratio in tertiary education",
+    "Per capita expenditure on healthcare, in current U.S. dollars",
+    "Annual population growth rate",
+    "Percentage of the population with access to electricity",
+    "Percentage of individuals who use the Internet",
+    "Number of mobile subscriptions per 100 people",
+    "Percentage of total population living in urban areas"
+  )
+)
+
+kable(data_dict, align = "l")
+```
+
+Multiple Regression
+======================================
+
+### Research Question
+
+Can we predict GDP per capita of a country in USD from total enrollment in tertiary education, how much a country spend on healthcare per capita, and the percentage of the population that lives in an urban area?
+
+### Original Data
+
+<div style="width: 100%; display: block;">
+
+```{r}
+ggpairs(df_mlr,
+        columns = c("gdp",
+                    "school",
+                    "health",
+                    "urban"),
+        upper = list(continuous = "smooth"),
+        lower = list(continuous = "cor"))
+```
+
+***
+
+Looking at the matrix plot, the strongest relationship with GDP per capita is clearly health expenditure—there’s a tight, upward trend in the scatterplot, and the correlation is really high at 0.944. School enrollment and urban population also show positive relationships with GDP, but they’re not as strong. The points are more spread out and the correlations are a lot lower.
+
+The distributions for GDP and health expenditure are both heavily skewed, with a lot of values clustered on the low end and a long tail of high values. That suggests we should log-transform those two variables to make the relationships more linear and improve the model fit. Urban population is a percentage and only mildly skewed, but the scatterplot with GDP still shows some curvature. In that case, a square root transformation is a better choice than log since it's more appropriate for percentage-based variables and makes the relationship more linear without distorting the scale too much.
+
+</div>
+
+### Transformed Data
+
+<div style="width: 100%; display: block;">
+
+```{r}
+df_mlr$log_gdp <- log(df_mlr$gdp)
+df_mlr$log_health <- log(df_mlr$health)
+df_mlr$sqrt_urban <- sqrt(df_mlr$urban)
+ggpairs(df_mlr,
+        columns = c("log_gdp",
+                    "school",
+                    "log_health",
+                    "sqrt_urban"),
+        upper = list(continuous = "smooth"),
+        lower = list(continuous = "cor"))
+```
+
+***
+
+After applying the transformations, the relationships between the variables look a lot more linear. The log transformation on GDP and health expenditure really helped tighten up the scatterplots, especially between `log_gdp` and `log_health`, which now shows an extremely strong, nearly perfect linear trend (Corr: 0.982). The correlation between GDP and the other two predictors—school enrollment and urban population also improved. School is now at 0.602, and the transformed urban variable (`sqrt_urban`) is at 0.722.
+
+The density plots also look a lot better. `log_gdp` and `log_health` are now more normally distributed, and while `sqrt_urban` is still a little skewed, it’s a definite improvement over the original scale. The scatterplots overall look tighter and more consistent, which means the assumptions for multiple regression hold.
+
+</div>
+
+### Fit Model
+
+```{r}
+set.seed(123) 
+train_idx <- createDataPartition(df_mlr$log_gdp, p = 0.7, list = FALSE)
+train_mlr <- df_mlr[train_idx, ]
+test_mlr  <- df_mlr[-train_idx, ]
+mlr <- lm(log_gdp ~ school + log_health + sqrt_urban, data = train_mlr)
+summary(mlr)
+```
+
+***
+
+The model explains about 96% of the variation in $\log$ GDP per capita, which means the three predictors together do a very good job of accounting for differences in GDP across countries. The F-test result shows that the overall model is statistically significant.
+
+Looking at the coefficients, log_health has a strong positive effect on GDP, while school has a very small negative effect. The coefficient for `sqrt_urban` is also close to zero, suggesting it doesn’t have much impact in this model.
+
+### Studentized Residual Plot
+
+<div style="width: 100%; display: block;">
+
+```{r}
+df_plot <- data.frame(fitted = fitted(mlr), resid = rstudent(mlr))
+ggplot(df_plot, aes(x = fitted, y = resid)) +
+  geom_point() +
+  labs(
+    title = "Studentized Residuals vs Fitted Values",
+    x = "Fitted Values",
+    y = "Studentized Residuals")
+```
+
+***
+
+The residuals are generally well spread out across the range of fitted values, which suggests that the model meets the assumption of constant variance. There’s no clear curvature or funnel shape, so the linearity and homoscedasticity assumptions appear to hold. There is definitely an outlier in the bottom left. 
+
+That said, there is some bunching of points between fitted values of 9 and 11, where the residuals seem to cluster more tightly around zero. This might reflect a large number of countries with similar predicted GDP values that the model was able to predict very accurately. 
+
+</div>
+
+### Leverage Plots
+
+<div style="width: 100%; display: block;">
+
+```{r}
+leverage_vals <- hatvalues(mlr)
+n <- nrow(df_mlr)
+p <- length(coef(mlr))
+lev_cutoff <- 3 * (p / n)
+plot(leverage_vals, type = "h", 
+     main = paste("Leverage Values (Cutoff =", round(lev_cutoff, 4), ")"),
+     ylab = "Leverage")
+abline(h = lev_cutoff, col = "blue", lty = 2)
+```
+
+***
+
+Horizontal dashed line represents the leverage cutoff, calculated by $3(p/n)$. Many of the points are below the the cutoff. However, there are some points that exceed the line and have influence in pulling the regression line. Further research would need to be done to determine if the points are accurate. 
+
+</div>
+
+### Cook's Distance
+
+<div style="width: 100%; display: block;">
+
+```{r}
+cooks_d <- cooks.distance(mlr)
+n <- nrow(df_mlr)
+p <- length(coef(mlr))
+cook_cut_1 <- 4 / (n - p - 1)
+plot(cooks_d, type = "h", 
+     main = paste("Cook's Distance (Cutoff =", round(cook_cut_1, 4), ")"),
+     ylab = "Cook's D")
+abline(h = cook_cut_1, col = "red", lty = 2)
+legend("topright", legend = c("4/(n-p-1)"))
+```
+
+***
+
+Horizontal dashed line represents the $4/(n-p-1)$ cut off value. There are a good bit of data points or spikes below or around the cutoff line, but there are a few that exceed the cutoff value. There are two points that reach 0.15 and about 0.07 that stand out as high influence points. Further investigation would be needed to see if these points are accurate or of importance for our model. 
+
+</div>
+
+### QQ Plot
+
+<div style="width: 100%; display: block;">
+
+```{r}
+student_resid <- rstudent(mlr)
+qqnorm(student_resid, main = "QQ Plot of Studentized Residuals")
+qqline(student_resid, col = "red", lwd = 2)
+```
+
+***
+
+The studentized residuals follow the QQ plot pretty closely along the 45 degree line. The data points are right along the line in the middle of the plot and the tails deviate a little, but overall the plot is good and the data follows the normality assumption. 
+
+</div>
+
+### Fit Testing Data
+
+<div style="width: 100%; display: block;">
+
+In order to test our multiple regression model, we split our data into a 70-30 training-testing split. 
+
+***
+
+```{r}
+test_mlr$pred_log_gdp <- predict(mlr, newdata = test_mlr)
+rmse_val <- rmse(test_mlr$log_gdp, test_mlr$pred_log_gdp)
+kable(data.frame(
+  Metric = "Root Mean Squared Error (RMSE)",
+  Value = round(rmse_val, 4)
+), caption = "Model Error on Test Set")
+```
+
+</div>
+
+### Conclusion
+
+Yes, we can predict GDP per capita of a country from total enrollment in tertiary education, how much a country spend on healthcare per capita, and the percentage of the population that lives in an urban area. In fact our model has a very good R^2 value and does a good job at this task. Overall the linear regression assumptions were upheld, but further research could be done on the problematic leverage and influence points. Based on the model's performance, it seems like linear regression is fine for this task but further work could be done using robust regression methods to deal with the leverage and influential points.
+
+Ridge Regression
+======================================
+
+### Research Question and Background
+
+To what extent can a country's GDP per capita be predicted by its inflation rate, unemployment, export activity and capital formation?
+
+Why use Ridge: You have multiple potentially correlated predictors (e.g., inflation and unemployment) so Ridge helps control for multicollinearity while identify which economic indicators best explain GDP per capita variation.
+
+### Choose Best Lambda
+
+```{r}
+# clean the data: want to remove NA's
+# and select the appropriate variables
+ridge_data <- bank %>% select('GDP per capita (current US$)', 
+         'Inflation, consumer prices (annual %)',
+         'Exports of goods and services (% of GDP)',
+         'Gross capital formation (% of GDP)',
+         'Unemployment, total (% of total labor force) (national estimate)') %>% na.omit()
+
+# log-transform GDP
+ridge_data <- ridge_data %>%
+  mutate(log_gdp = log(`GDP per capita (current US$)`)) %>% select(-'GDP per capita (current US$)') #removing original gdp
+
+# setup
+x <- model.matrix(log_gdp ~ ., data = ridge_data)[,-1]
+# Model on log_gdp instead
+y <- ridge_data$log_gdp
+#y <- ridge_data$`GDP per capita (current US$)`
+
+#head(x)
+#head(y)
+
+# ridge regression model
+ridge_mod <- glmnet(x, y, alpha = 0)
+#head(ridge_mod)
+
+# cross-validation to choose best lambda
+cv_ridge <- cv.glmnet(x, y, alpha = 0)
+best_lambda <- cv_ridge$lambda.min
+
+# cross-validation graph
+plot(cv_ridge, main = "Ridge Regression")
+abline(v = log(cv_ridge$lambda.min), col = "blue", lty = 2)  # best lambda
+```
+
+### Ridge Regression Model
+
+<div style="width: 100%; display: block;">
+
+```{r}
+#  best lambda
+ridge_pred <- predict(ridge_mod, s = best_lambda, newx = x)
+
+# visual graph
+plot(y, ridge_pred, main = "Ridge Regression Fit",
+     xlab = "Actual GDP per capita", ylab = "Predicted", col = "#861F41", pch = 16)
+abline(0, 1, col = "blue")
+```
+
+***
+
+### Conclusion
+
+In the Ridge Regression the red dots show the mean squared error that we found at different values of log(lambda) during cross-validation. The blue vertical line marks the optimal lambda found. This lamdba minimizes the prediction error. The model performs best with relatively low regularization penalty, indicating that the predictors contribute useful information and multicollinearity is present but not severe. The curve is smooth and U-shaped, showing the trade-off between underfitting and overfitting.
+
+After a log-transforming GDP per capita, the Ridge Regression model shows a more stable and linear relationship to our data. The predictions are close to the actual values amd suggest that the transformation corrected the skewness we had previously. The model captures the overall trend well.
+
+</div>
+
+LOESS
+======================================
+
+### Research Question and Background
+
+We aim to use LOESS to predict a country's GDP per capita for several countries. We use both degree-1 and degree-2 polynomials to compare how good the fit was. This is ultimately determined by comparing their MSEs. A lower MSE indicates a better fit, but we need to take care of overfitting issues. In all analyses, the `span` is set to 0.5.
+
+We chose 6 countries for the analyses. The full data range is from 2000 to 2021, but some countries may have data missing for some years.
+
+### United Kingdom
+
+<div style="width: 100%; display: block;">
+
+```{r}
+uk_data <- wb[192:213,]
+uk_gpc <- uk_data$GDP.per.capita..current.US..
+year <- uk_data$Year
+
+loessfit.uk.d1 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=uk_data, span=0.5, degree=1)
+loessfit.uk.d2 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=uk_data, span=0.5, degree=2)
+```
+
+```{r fig.height=4}
+plot1 <- ggplot(mapping=aes(x=year, y=uk_gpc)) + geom_point() +
+  geom_line(data=data.frame(x=year, y=loessfit.uk.d1$fitted),
+            aes(x=x, y=y, color="deg 1")) +
+  geom_line(data=data.frame(x=year, y=loessfit.uk.d2$fitted), 
+            aes(x=x, y=y, color="deg 2")) +
+  scale_color_manual(name="degree", breaks=c("deg 1", "deg 2"), 
+                     values=c("red", "blue")) +
+  ggtitle("GDP per Capita of the UK, 2000-2021")
+
+plot1
+```
+
+Summary Statistics
+```{r}
+sse.uk.d1 <- sum(uk_gpc - loessfit.uk.d1$fitted)^2
+sse.uk.d2 <- sum(uk_gpc - loessfit.uk.d2$fitted)^2
+mse.uk.d1 <- sse.uk.d1 / length(year)
+mse.uk.d2 <- sse.uk.d2 / length(year)
+stats.uk <- data.frame("degree"=c(1,2), "SSE"=c(sse.uk.d1, sse.uk.d2),
+                   "MSE"=c(mse.uk.d1, mse.uk.d2))
+kable(stats.uk)
+```
+
+</div>
+
+### Uruguay
+
+<div style="width: 100%; display: block;">
+
+```{r}
+ug_data <- wb[1088:1109,]
+ug_gpc <- ug_data$GDP.per.capita..current.US..
+year <- ug_data$Year
+
+loessfit.ug.d1 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=ug_data, span=0.5, degree=1)
+loessfit.ug.d2 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=ug_data, span=0.5, degree=2)
+```
+
+```{r fig.height=4}
+plot2 <- ggplot(mapping=aes(x=year, y=ug_gpc)) + geom_point() +
+  geom_line(data=data.frame(x=year, y=loessfit.ug.d1$fitted),
+            aes(x=x, y=y, color="deg 1")) +
+  geom_line(data=data.frame(x=year, y=loessfit.ug.d2$fitted), 
+            aes(x=x, y=y, color="deg 2")) +
+  scale_color_manual(name="degree", breaks=c("deg 1", "deg 2"), 
+                     values=c("red", "blue")) +
+  ggtitle("GDP per Capita of Uruguay, 2000-2021")
+
+plot2
+```
+
+Summary Statistics
+```{r}
+sse.ug.d1 <- sum(ug_gpc - loessfit.ug.d1$fitted)^2
+sse.ug.d2 <- sum(ug_gpc - loessfit.ug.d2$fitted)^2
+mse.ug.d1 <- sse.ug.d1 / length(year)
+mse.ug.d2 <- sse.ug.d2 / length(year)
+stats.ug <- data.frame("degree"=c(1,2), "SSE"=c(sse.ug.d1, sse.ug.d2),
+                   "MSE"=c(mse.ug.d1, mse.ug.d2))
+kable(stats.ug)
+```
+
+</div>
+
+### China
+
+<div style="width: 100%; display: block;">
+
+```{r}
+cn_data <- wb[13:25,]
+cn_gpc <- cn_data$GDP.per.capita..current.US..
+year <- cn_data$Year
+
+loessfit.cn.d1 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=cn_data, span=0.5, degree=1)
+loessfit.cn.d2 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=cn_data, span=0.5, degree=2)
+```
+
+```{r fig.height=4}
+plot3 <- ggplot(mapping=aes(x=year, y=cn_gpc)) + geom_point() +
+  geom_line(data=data.frame(x=year, y=loessfit.cn.d1$fitted),
+            aes(x=x, y=y, color="deg 1")) +
+  geom_line(data=data.frame(x=year, y=loessfit.cn.d2$fitted), 
+            aes(x=x, y=y, color="deg 2")) +
+  scale_color_manual(name="degree", breaks=c("deg 1", "deg 2"), 
+                     values=c("red", "blue")) +
+  ggtitle("GDP per Capita of China, 2002-2021")
+
+plot3
+```
+
+Summary Statistics
+```{r}
+sse.cn.d1 <- sum(cn_gpc - loessfit.cn.d1$fitted)^2
+sse.cn.d2 <- sum(cn_gpc - loessfit.cn.d2$fitted)^2
+mse.cn.d1 <- sse.cn.d1 / length(year)
+mse.cn.d2 <- sse.cn.d2 / length(year)
+stats.cn <- data.frame("degree"=c(1,2), "SSE"=c(sse.cn.d1, sse.cn.d2),
+                   "MSE"=c(mse.cn.d1, mse.cn.d2))
+kable(stats.cn)
+```
+
+</div>
+
+### France
+
+<div style="width: 100%; display: block;">
+
+```{r}
+fr_data <- wb[26:47,]
+fr_gpc <- fr_data$GDP.per.capita..current.US..
+year <- fr_data$Year
+
+loessfit.fr.d1 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=fr_data, span=0.5, degree=1)
+loessfit.fr.d2 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=fr_data, span=0.5, degree=2)
+```
+
+```{r fig.height=4}
+plot4 <- ggplot(mapping=aes(x=year, y=fr_gpc)) + geom_point() +
+  geom_line(data=data.frame(x=year, y=loessfit.fr.d1$fitted),
+            aes(x=x, y=y, color="deg 1")) +
+  geom_line(data=data.frame(x=year, y=loessfit.fr.d2$fitted), 
+            aes(x=x, y=y, color="deg 2")) +
+  scale_color_manual(name="degree", breaks=c("deg 1", "deg 2"), 
+                     values=c("red", "blue")) +
+  ggtitle("GDP per Capita of France, 2000-2021")
+
+plot4
+```
+
+Summary Statistics
+```{r}
+sse.fr.d1 <- sum(fr_gpc - loessfit.fr.d1$fitted)^2
+sse.fr.d2 <- sum(fr_gpc - loessfit.fr.d2$fitted)^2
+mse.fr.d1 <- sse.fr.d1 / length(year)
+mse.fr.d2 <- sse.fr.d2 / length(year)
+stats.fr <- data.frame("degree"=c(1,2), "SSE"=c(sse.fr.d1, sse.fr.d2),
+                   "MSE"=c(mse.fr.d1, mse.fr.d2))
+kable(stats.fr)
+```
+
+</div>
+
+### Indonesia
+
+<div style="width: 100%; display: block;">
+
+```{r}
+id_data <- wb[59:80,]
+id_gpc <- id_data$GDP.per.capita..current.US..
+year <- id_data$Year
+
+loessfit.id.d1 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=id_data, span=0.5, degree=1)
+loessfit.id.d2 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=id_data, span=0.5, degree=2)
+```
+
+```{r fig.height=4}
+plot5 <- ggplot(mapping=aes(x=year, y=id_gpc)) + geom_point() +
+  geom_line(data=data.frame(x=year, y=loessfit.id.d1$fitted),
+            aes(x=x, y=y, color="deg 1")) +
+  geom_line(data=data.frame(x=year, y=loessfit.id.d2$fitted), 
+            aes(x=x, y=y, color="deg 2")) +
+  scale_color_manual(name="degree", breaks=c("deg 1", "deg 2"), 
+                     values=c("red", "blue")) +
+  ggtitle("GDP per Capita of Indonesia, 2000-2021")
+
+plot5
+```
+
+Summary Statistics
+```{r}
+sse.id.d1 <- sum(id_gpc - loessfit.id.d1$fitted)^2
+sse.id.d2 <- sum(id_gpc - loessfit.id.d2$fitted)^2
+mse.id.d1 <- sse.id.d1 / length(year)
+mse.id.d2 <- sse.id.d2 / length(year)
+stats.id <- data.frame("degree"=c(1,2), "SSE"=c(sse.id.d1, sse.id.d2),
+                   "MSE"=c(mse.id.d1, mse.id.d2))
+kable(stats.id)
+```
+
+</div>
+
+### Colombia
+
+<div style="width: 100%; display: block;">
+
+```{r}
+co_data <- wb[364:382,]
+co_gpc <- co_data$GDP.per.capita..current.US..
+year <- co_data$Year
+
+loessfit.co.d1 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=co_data, span=0.5, degree=1)
+loessfit.co.d2 <- loess(GDP.per.capita..current.US.. ~ Year,
+                data=co_data, span=0.5, degree=2)
+```
+
+```{r fig.height=4}
+plot6 <- ggplot(mapping=aes(x=year, y=co_gpc)) + geom_point() +
+  geom_line(data=data.frame(x=year, y=loessfit.co.d1$fitted),
+            aes(x=x, y=y, color="deg 1")) +
+  geom_line(data=data.frame(x=year, y=loessfit.co.d2$fitted), 
+            aes(x=x, y=y, color="deg 2")) +
+  scale_color_manual(name="degree", breaks=c("deg 1", "deg 2"), 
+                     values=c("red", "blue")) +
+  ggtitle("GDP per Capita of Colombia, 2000-2021")
+
+plot6
+```
+
+Summary Statistics
+```{r}
+sse.co.d1 <- sum(co_gpc - loessfit.co.d1$fitted)^2
+sse.co.d2 <- sum(co_gpc - loessfit.co.d2$fitted)^2
+mse.co.d1 <- sse.co.d1 / length(year)
+mse.co.d2 <- sse.co.d2 / length(year)
+stats.co <- data.frame("degree"=c(1,2), "SSE"=c(sse.co.d1, sse.co.d2),
+                   "MSE"=c(mse.co.d1, mse.co.d2))
+kable(stats.co)
+```
+
+</div>
+
+### Conclusion
+From the analyses above, we can see that LOESS tends to have greater MSE when there is more fluctuation in a country's growth, as in the case for the UK. For Uruguay and China, which showed a more graduate growth, the MSE is lower. Usually, we expect a degree-2 fit gave a lower MSE than a degree-1 fit, but for some countries like Indonesia and France, a degree-2 LOESS yielded a higher MSE than degree-1. The analyses here use a `span` of 0.5, but we should try out different `span` values to find out the optimal fit for each data. However, while a lower MSE indicates a good fit, we must consider the problem of overfitting. This ensures that when we introduce new data, LOESS can capture most of the features.
+
+
+kNN Classification
+======================================
+
+### Research Question
+
+Can we classify countries into high vs. low internet usage based on economic indicators such as GDP per capita of a country, total enrollment in tertiary education, how much a country spend on healthcare per capita, and the percentage of the population that lives in an urban area? 
+
+### Set Up
+
+```{r}
+df_knn <- wb %>%
+  dplyr::rename(
+    gdp = `GDP.per.capita..current.US..`,
+    school = `School.enrollment..tertiary....gross.`,
+    health = `Current.health.expenditure.per.capita..current.US..`,
+    urban = `Urban.population....of.total.population.`,
+    internet = `Individuals.using.the.Internet....of.population.`
+  ) %>%
+  select(internet, gdp, school, health, urban) %>%
+  drop_na()
+df_knn <- df_knn %>%
+  mutate(usage_class = ifelse(internet > median(internet), "High", "Low"))
+min_max <- function(x) {
+  (x - min(x)) / (max(x) - min(x))
+}
+df_knn <- df_knn %>%
+  mutate(across(c(gdp, school, health, urban), min_max))
+set.seed(123) 
+train <- createDataPartition(df_knn$usage_class, p = 0.7, list = FALSE)
+train_data <- df_knn[train, c("gdp", "school", "health", "urban")]
+train_labels <- df_knn[train, "usage_class"]
+
+test_data <- df_knn[-train, c("gdp", "school", "health", "urban")]
+test_labels <- df_knn[-train, "usage_class"]
+```
+For this research question we will create a binary variable based on if internet usage is greater than the median internet usage value. We will also prepare our data using min-max normalization. Lastly, we will divide the into a 70-30 training-testing split. 
+
+### kNN Model
+
+<div style="width: 100%; display: block;">
+
+We will use the `knn` function from the **class** library. Additionally, we will test k values 1 through 10, to see which performs best. 
+
+***
+
+```{r}
+k_values <- c(1:10)
+results <- data.frame(
+  k = integer(),
+  Accuracy = numeric(),
+  Error = numeric())
+for (k in k_values) {
+  set.seed(123)
+  knn_pred <- knn(
+    train = train_data,
+    test = test_data,
+    cl = train_labels,
+    k = k,
+    use.all = FALSE)
+  acc <- mean(knn_pred == test_labels)
+  err <- 1 - acc
+  results <- rbind(results, data.frame(k = k, Accuracy = acc, Error = err))
+}
+kable(results, row.names = FALSE, digits = 4)
+```
+
+***
+
+```{r}
+ggplot(results, aes(x = k, y = Accuracy)) +
+  geom_line(color = "red", size = 1.2) +
+  scale_x_continuous(breaks = k_values) +
+  labs(
+    title = "KNN Accuracy vs. Number of Neighbors (k)",
+    x = "Number of Neighbors (k)",
+    y = "Accuracy")
+```
+</div>
+
+### Choosing the Best k
+
+As seen on the plot and table above, $k=73$ and $k=9$ are equal so we will just use $k=7$ as the best $k$ value to choose. 
+
+```{r}
+knn_pred <- knn(
+    train = train_data,
+    test = test_data,
+    cl = train_labels,
+    k = 7,
+    use.all=TRUE)
+knn_table <- table(Predicted = knn_pred, Actual = test_labels)
+kable(knn_table, caption = "Confusion Matrix (K = 7)", align = "c")
+accuracy <- mean(knn_pred == test_labels)
+error <- 1 - accuracy
+kable(data.frame(Metric = c("Accuracy", "Error Rate"),
+                 Value = round(c(accuracy, error), 4)),
+      caption = "KNN Model Performance (K = 7)")
+```
+
+### Conclusion
+
+Yes, we can classify countries into high vs. low internet usage based on economic indicators such as GDP per capita of a country, total enrollment in tertiary education, how much a country spend on healthcare per capita, and the percentage of the population that lives in an urban area? Additionally, as seen in the analysis $k=3$ performs the best for this task.
+
+Naive Bayes Classification
+======================================
+
+### Research Question
+
+Can we classify countries into high vs. low life expectancy based on development statistics like percent of the population that lives in an urban area, how much a country spend on healthcare per capita, and percent of the population who have access to electricity?
+
+### Set Up
+
+```{r}
+df_nb <- wb %>%
+  dplyr::rename(
+    life = `Life.expectancy.at.birth..total..years.`,
+    health = `Current.health.expenditure.per.capita..current.US..`,
+    urban = `Urban.population....of.total.population.`,
+    electricity = `Access.to.electricity....of.population.`
+  ) %>%
+  select(life, health, urban, electricity) %>%
+  drop_na()
+df_nb <- df_nb %>%
+  mutate(life_class = ifelse(life > median(life), "High", "Low"))
+set.seed(123)
+train_idx <- createDataPartition(df_nb$life_class, p = 0.7, list = FALSE)
+train_data <- df_nb[train_idx, c("health", "urban", "electricity")]
+train_labels <- df_nb$life_class[train_idx]
+test_data  <- df_nb[-train_idx, c("health", "urban", "electricity")]
+test_labels <- df_nb$life_class[-train_idx]
+```
+
+For this research question, we will create a binary variable for high and low life expectancy based on if the life expectancy of a country is greater than the median life expectancy from the data. Additionally, we will create a 70-30 training-testing split. 
+
+### Naive Bayes Model
+
+<div style="width: 100%; display: block;">
+
+```{r}
+nb <- naiveBayes(x = train_data, y = as.factor(train_labels))
+nb_pred <- predict(nb, test_data)
+
+table_nb <- table(Predicted = nb_pred, Actual = test_labels)
+
+kable(table_nb, caption = "Naive Bayes Confusion Matrix (Life Expectancy Class)", align = "c")
+
+accuracy <- mean(nb_pred == test_labels)
+error_rate <- 1 - accuracy
+kable(data.frame(
+  Metric = c("Accuracy", "Error Rate"),
+  Value = round(c(accuracy, error_rate), 4)), caption = "Naive Bayes Model Performance Summary")
+
+probs <- predict(nb, test_data, type = "raw")
+prob_df <- data.frame(
+  Actual = test_labels,
+  Prob_High = probs[, "High"])
+ggplot(prob_df, aes(x = Prob_High, color = Actual, fill = Actual)) +
+  geom_density(alpha = 0.4) +
+  labs(title = "Posterior Probability Density by True Class",
+       x = "Probability of High", y = "Density")
+```
+
+***
+
+This plot shows how confident the model is in predicting high life expectancy. It does really a really good job predicting high life expectancy countries, but is less confident on low life expectancy ones.
+
+</div>
+
+### Conclusion
+
+Yes, we can classify countries into high vs. low internet usage based on economic indicators such as GDP per capita of a country, total enrollment in tertiary education, how much a country spend on healthcare per capita, and the percentage of the population that lives in an urban area. As seen in our analysis above, the Naive Bayes model performs very well on this task.
+
+Logistic Regression Classification
+======================================
+
+### Research Question
+
+How do life expectancy, income inequality, and unemployment influence the likelihood of a country being under developed? 
+
+### Set Up
+
+For this research question, we will define underdeveloped countries as those with life expectancy less than 70, and use this to create our classes.
+
+### Logistic Regression Model
+
+<div style="width: 100%; display: block;">
+
+```{r Logisitic Regression}
+# Create binary response: low life expectancy (< 70)
+bank <- bank %>%
+  mutate(low_expectancy = ifelse(`Life expectancy at birth, total (years)` < 70, 1, 0))
+logit_data <- bank %>%
+  select(low_expectancy, 
+         'Unemployment, total (% of total labor force) (national estimate)', 
+         'Gini index', 
+         'GDP per capita (current US$)') %>%
+  na.omit()
+
+# Fit logistic regression model
+logit_model <- glm(low_expectancy ~ ., data = logit_data, family = "binomial")
+summary(logit_model)
+```
+
+***
+
+```{r}
+logit_data$pred_prob <- predict(logit_model, type = "response")
+roc_obj <- roc(logit_data$low_expectancy, logit_data$pred_prob)
+plot(roc_obj, 
+     main = paste0("ROC Curve: Predicting Low Life Expectancy (AUC = ", round(auc(roc_obj), 3), ")"), 
+     col = "blue", lwd = 2)
+abline(a = 0, b = 1, lty = 2, col = "gray") 
+```
+
+***
+```{r}
+library(tidyverse)
+library(broom)
+library(ggplot2)
+
+# Create the binary outcome variable first
+bank <- bank %>%
+  mutate(low_expectancy = ifelse(`Life expectancy at birth, total (years)` < 70, 1, 0))
+
+# Select the relevant variables and remove rows with NAs
+logit_dev_data <- bank %>%
+  select(low_expectancy,
+         `Unemployment, total (% of total labor force) (national estimate)`,
+         `Gini index`,
+         `GDP per capita (current US$)`) %>%
+  na.omit()
+
+# Fit the logistic regression model
+dev_model <- glm(low_expectancy ~ ., data = logit_dev_data, family = "binomial")
+
+# Add predicted probabilities to the dataset
+logit_dev_data$pred_prob <- predict(dev_model, type = "response")
+
+# Plot predicted probability vs GDP per capita
+ggplot(logit_dev_data, aes(x = `GDP per capita (current US$)`, y = pred_prob)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess") +
+  labs(
+    title = "Probability of Low Life Expectancy vs. GDP per Capita",
+    y = "Predicted Probability",
+    x = "GDP per Capita"
+  )
+```
+
+***
+
+### Conclusion
+
+Conclusion: When evaluating Life expectancy to income inequality and unemployment rate, we can see there is a distinct downward trend. What are we seeing here? Well the higher the unemployment rate the lower the life expectancy is. We also see this when we incorporate income inequality and GDP per capita that our graph eventually normalizes where we assume it is at a lower life expectancy than 70 years.
+
+We provided a separate graph to see how life expectancy compares to GDP per Capita and our other factors (unemployment and Gini index). We can see that the predictability of having lower GDP to higher unemployment rate, and a greater income inequality produces a higher probability of a country having a life expectancy below 70 years.
+
+</div>
