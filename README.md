@@ -7,7 +7,8 @@ An interactive R flexdashboard analyzing global development trends (2000–2022)
 
 ## Live Dashboard
 
-> *The dashboard is an HTML file – download or view locally after rendering. A live demo link can be added here if hosted.*
+> *The dashboard is an HTML file – download or view locally after rendering.* 
+> *Need to add a live demo link but need to be hosted first.*
 
 ## Team Members
 
@@ -38,7 +39,7 @@ This dashboard analyzes socioeconomic and infrastructure indicators from the Wor
 
 ## Repository Contents
 
-- worldbank_dashboard.Rmd # R Markdown source for flexdashboard
-- worldbank_dashboard.html # Self-contained interactive dashboard
+- Project_1_Group_09.Rmd # R Markdown source for flexdashboard
+- Global-Development-Dashboard.html # Self-contained interactive dashboard
 - worldbank.csv # Raw data (if permitted to share)
 - README.md # This file
